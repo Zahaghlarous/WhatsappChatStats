@@ -1,0 +1,215 @@
+import os
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import datetime
+import pandas as pd
+from textwrap import wrap
+from pandas import *
+
+def read_file(file):
+    x = open(file, 'r', encoding="utf-8")
+    y = x.read()
+    content = y.splitlines()
+    file_name = os.path.basename(x.name)
+    return content
+
+def name_file(file):
+    x = open(file, 'r', encoding="utf-8")
+    file_name = os.path.basename(x.name)
+    return file_name
+
+get_file = os.listdir('input/')
+
+chat =  read_file('input/' + str(get_file[0]))
+
+# file name for use as label
+file_name = name_file('input/' + str(get_file[0]))
+file_name = file_name[18:-4]
+
+
+len(chat)
+
+
+## Get date
+date = []
+for i in range(len(chat)):
+  try:
+    date.append(chat[i].split(',')[0])
+  except IndexError:
+    date.append('Missing Date')
+       
+## Get time
+time=[]
+for i in range(len(chat)):
+  try:
+    time.append(chat[i].split(',')[1].split('-')[0])
+  except IndexError:
+    time.append('Missing Time')
+time = [s.strip(' ') for s in time]
+
+## Get name
+name = []
+for i in range(len(chat)):
+  try:
+    name.append(chat[i].split('-')[1].split(':')[0])
+  except IndexError:
+    name.append('Missing Name')
+
+## Get content
+content = []
+for i in range(len(chat)):
+  try:
+    content.append(chat[i].split(':')[2])
+  except IndexError:
+    content.append('Missing Text')
+
+#Filter to clean text
+d = date
+t = time
+n = name
+c = content
+
+#Main Dataframe
+df = pd.DataFrame(list(zip(date, time, name, content, d, t, n, c)), columns = ['Date', 'Time', 'Name', 'Content', 'D', 'T', 'N', 'C'])
+
+#clean Complete chat
+try:
+    completeChat = df.set_index("D")
+    completeChat = completeChat.drop("Missing Date", axis=0)
+    completeChat = completeChat.reset_index(drop=True)
+except:
+    pass
+
+try:
+    completeChat = completeChat.set_index("T")
+    completeChat = completeChat.drop("Missing Time", axis=0)
+    completeChat = completeChat.reset_index(drop=True)
+except:
+    pass
+
+try:
+    completeChat = completeChat.set_index("N")
+    completeChat = completeChat.drop("Missing Name", axis=0)
+    completeChat = completeChat.drop("225", axis=0)
+    completeChat = completeChat.reset_index(drop=True)
+except:
+    pass
+
+try:
+    completeChat = completeChat.set_index("C")
+    completeChat = completeChat.drop("Missing Text", axis=0)
+except:
+    pass
+#completeChat = completeChat.reset_index(drop=True)
+
+
+# list of members in total
+ccUser= completeChat['Name'].unique()
+ccUser= pd.DataFrame(ccUser)
+ccUser.columns = ['Name']
+ccUser.sort_values(by=['Name'], inplace=True)
+ccUser = ccUser.reset_index(drop=True)
+ccUserl = ccUser['Name'].tolist()
+
+# no of total messages sent by individuals
+completeUser = completeChat.groupby('Name')['Date'].count()
+completeUser = completeUser.to_frame()
+completeUser.insert(0,'Name',ccUserl)
+
+
+# only texts database
+textChat = completeChat.drop(" <Media omitted>", axis=0)
+textChat = textChat.reset_index(drop=True)
+
+# list of members who texted
+tcUser= textChat['Name'].unique()
+tcUser= pd.DataFrame(tcUser)
+tcUser.columns = ['Name']
+tcUser.sort_values(by=['Name'], inplace=True)
+tcUser = tcUser.reset_index(drop=True)
+tcUserl = tcUser['Name'].tolist()
+
+# no of texts sent by individuals
+textUser = textChat.groupby('Name')['Date'].count()
+textUser = textUser.to_frame()
+textUser.insert(0,'Name',tcUserl)
+
+# only media database
+#mediaChat = df[df['C']==' <Media omitted>']
+
+# list of members who sent media
+#mcUser= mediaChat['Name'].unique()
+#mcUser= pd.DataFrame(mcUser)
+#mcUser.columns = ['Name']
+#mcUser.sort_values(by=['Name'], inplace=True)
+#mcUser = mcUser.reset_index(drop=True)
+#mcUserl = mcUser['Name'].tolist()
+
+# no of media sent by individuals
+#mediaUser = mediaChat.groupby('Name')['Date'].count()
+#mediaUser = mediaUser.to_frame()
+#mediaUser.insert(0,'Name',mcUserl)
+
+#media second method
+mediaUser = pd.DataFrame(list(zip(ccUserl, completeUser['Date'], textUser['Date'])), columns = ['Name', 'All', 'Text'])
+mediaUser ['Date'] = mediaUser['All'] - mediaUser['Text']
+
+#plot
+labels = ccUserl
+labels = [ '\n'.join(wrap(l, 10)) for l in labels ]
+cChat = completeUser["Date"]
+tChat = textUser["Date"]
+mChat = mediaUser["Date"]
+
+x = np.arange(len(labels))  # the label locations
+width = 0.35  # the width of the bars
+
+fig = plt.figure(figsize=(int(len(labels)), 10))
+ax = fig.add_subplot()
+
+rects1 = ax.bar(x-width , cChat, width-0.1, align='center', label='All')
+rects2 = ax.bar(x-0.1, tChat, width-0.1, align='center', label='Texts')
+#try:
+#    len(ccUser) == len(mcUser)
+rects3 = ax.bar(x+0.15 , mChat, width-0.1, align='center', label='Media')
+#except:
+#    pass
+
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_ylabel('Number of Messages')
+ax.set_title('Whatsapp Chat Stats: ' + str(file_name).upper() + ' |  ©ZAHAGHLAROUS')
+ax.set_xticks(x)
+ax.set_xticklabels(labels)
+ax.set_xlabel('Python Script by Zeeshan Javed : instagram.com/Zahaghlarous')
+ax.legend()
+
+def autolabel(rects):
+#    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in rects:
+        height = rect.get_height()
+        ax.annotate('{}'.format(height),
+                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+
+
+autolabel(rects1)
+autolabel(rects2)
+#try:
+    #len(ccUser) == len(mcUser)
+autolabel(rects3)
+#except:
+#    pass
+
+fig.tight_layout()
+
+#plt.show()
+
+fig.savefig('plot/' + str(file_name) + '.pdf')
+fig.savefig('plot/' + str(file_name) + '.jpg', dpi=600, quality=100, optimize=True, progressive=True)  
+
+completeChat = completeChat.reset_index(drop=True)
+
+#completeChat.to_excel(str(file_name) + '.xlsx', engine ="xlsxwriter")
